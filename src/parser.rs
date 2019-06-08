@@ -42,76 +42,79 @@ fn peek_precedence(tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>
 fn parse_infix_expression(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     left: Expression,
-) -> Option<Expression> {
+) -> Result<Expression, String> {
     match tokens.next() {
         Some(tok @ Token::PLUS) => {
-            if let Some(right) = parse_expression(tokens, precedence(tok)) {
-                Some(Expression::Plus(Box::new(left), Box::new(right)))
+            if let Ok(right) = parse_expression(tokens, precedence(tok)) {
+                Ok(Expression::Plus(Box::new(left), Box::new(right)))
             } else {
-                panic!("Couldn't parse infix expression 1")
+                Err("Couldn't parse infix expression 1".to_string())
             }
         }
         Some(tok @ Token::MINUS) => {
-            if let Some(right) = parse_expression(tokens, precedence(tok)) {
-                Some(Expression::Minus(Box::new(left), Box::new(right)))
+            if let Ok(right) = parse_expression(tokens, precedence(tok)) {
+                Ok(Expression::Minus(Box::new(left), Box::new(right)))
             } else {
-                panic!("Couldn't parse infix expression 2")
+                Err("Couldn't parse infix expression 2".to_string())
             }
         }
         Some(tok @ Token::SLASH) => {
-            if let Some(right) = parse_expression(tokens, precedence(tok)) {
-                Some(Expression::Divide(Box::new(left), Box::new(right)))
+            if let Ok(right) = parse_expression(tokens, precedence(tok)) {
+                Ok(Expression::Divide(Box::new(left), Box::new(right)))
             } else {
-                panic!("Couldn't parse infix expression 3")
+                Err("Couldn't parse infix expression 3".to_string())
             }
         }
         Some(tok @ Token::ASTERISK) => {
-            if let Some(right) = parse_expression(tokens, precedence(tok)) {
-                Some(Expression::Multiply(Box::new(left), Box::new(right)))
+            if let Ok(right) = parse_expression(tokens, precedence(tok)) {
+                Ok(Expression::Multiply(Box::new(left), Box::new(right)))
             } else {
-                panic!("Couldn't parse infix expression 4")
+                Err("Couldn't parse infix expression 4".to_string())
             }
         }
         Some(tok @ Token::EQ) => {
-            if let Some(right) = parse_expression(tokens, precedence(tok)) {
-                Some(Expression::Equals(Box::new(left), Box::new(right)))
+            if let Ok(right) = parse_expression(tokens, precedence(tok)) {
+                Ok(Expression::Equals(Box::new(left), Box::new(right)))
             } else {
-                panic!("Couldn't parse infix expression 5")
+                Err("Couldn't parse infix expression 5".to_string())
             }
         }
         Some(tok @ Token::NOTEQ) => {
-            if let Some(right) = parse_expression(tokens, precedence(tok)) {
-                Some(Expression::NotEquals(Box::new(left), Box::new(right)))
+            if let Ok(right) = parse_expression(tokens, precedence(tok)) {
+                Ok(Expression::NotEquals(Box::new(left), Box::new(right)))
             } else {
-                panic!("Couldn't parse infix expression 5")
+                Err("Couldn't parse infix expression 5".to_string())
             }
         }
         Some(tok @ Token::LT) => {
-            if let Some(right) = parse_expression(tokens, precedence(tok)) {
-                Some(Expression::LessThan(Box::new(left), Box::new(right)))
+            if let Ok(right) = parse_expression(tokens, precedence(tok)) {
+                Ok(Expression::LessThan(Box::new(left), Box::new(right)))
             } else {
-                panic!("Couldn't parse infix expression 6")
+                Err("Couldn't parse infix expression 6".to_string())
             }
         }
         Some(tok @ Token::GT) => {
-            if let Some(right) = parse_expression(tokens, precedence(tok)) {
-                Some(Expression::GreaterThan(Box::new(left), Box::new(right)))
+            if let Ok(right) = parse_expression(tokens, precedence(tok)) {
+                Ok(Expression::GreaterThan(Box::new(left), Box::new(right)))
             } else {
-                panic!("Couldn't parse infix expression 7")
+                Err("Couldn't parse infix expression 7".to_string())
             }
         }
         Some(tok @ Token::LPAREN) => {
-            let right = parse_call_arguments(tokens);
-            Some(Expression::Call(Box::new(left), right))
+            let right = parse_call_arguments(tokens)?;
+            Ok(Expression::Call(Box::new(left), right))
         }
-        Some(_) => None,
-        None => None,
+        Some(token) => Err(format!(
+            "Invalid token while parsing infix expression: {:?}",
+            token
+        )),
+        None => Err("Got EOF while parsing infix expression".to_string()),
     }
 }
 
 fn parse_call_arguments(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-) -> Vec<Expression> {
+) -> Result<Vec<Expression>, String> {
     let mut args = Vec::new();
 
     loop {
@@ -124,7 +127,11 @@ fn parse_call_arguments(
                 parse_expression(tokens, Precedence::Lowest)
                     .expect("Function argument should be an expression"),
             ),
-            None => panic!("Expected identifier, got end of file"),
+            None => {
+                return Err(
+                    "Expected identifier while parsing call arguments, got end of file".to_string(),
+                )
+            }
         }
 
         if let Some(Token::COMMA) = tokens.peek() {
@@ -132,12 +139,12 @@ fn parse_call_arguments(
         }
     }
 
-    args
+    Ok(args)
 }
 
 fn parse_block_statements(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-) -> Vec<Statement> {
+) -> Result<Vec<Statement>, String> {
     let mut statements = Vec::new();
 
     loop {
@@ -145,27 +152,24 @@ fn parse_block_statements(
             tokens.next();
             break;
         } else {
-            match parse_statement(tokens) {
-                Ok(statement) => statements.push(statement),
-                Err(e) => panic!("Expected statement, {:?}, {:?}", e, statements),
-            }
+            statements.push(parse_statement(tokens)?);
         }
     }
 
-    statements
+    Ok(statements)
 }
 
 fn parse_function_parameters(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-) -> Vec<Identifier> {
+) -> Result<Vec<Identifier>, String> {
     let mut identifiers = Vec::new();
 
     loop {
         match tokens.next() {
             Some(Token::RPAREN) => break,
             Some(Token::IDENT(ident)) => identifiers.push(Identifier(ident.to_string())),
-            Some(e) => panic!("Expected identifier, got {:?}", e),
-            None => panic!("Expected identifier, got end of file"),
+            Some(e) => return Err(format!("Expected identifier, got {:?}", e)),
+            None => return Err("Expected identifier, got end of file".to_string()),
         }
 
         if let Some(Token::COMMA) = tokens.peek() {
@@ -173,141 +177,131 @@ fn parse_function_parameters(
         }
     }
 
-    identifiers
+    Ok(identifiers)
 }
 
 fn parse_expression(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     precedence: Precedence,
-) -> Option<Expression> {
+) -> Result<Expression, String> {
     let mut left_exp = match tokens.next() {
         Some(Token::IDENT(ident)) => Expression::Ident(ident.to_string()),
         Some(Token::INT(n)) => Expression::IntegerLiteral(*n),
         Some(Token::BANG) => {
-            if let Some(expr) = parse_expression(tokens, Precedence::Prefix) {
-                Expression::Not(Box::new(expr))
-            } else {
-                panic!("Error parsing not expression")
-            }
+            let expr = parse_expression(tokens, Precedence::Prefix)?;
+
+            Expression::Not(Box::new(expr))
         }
         Some(Token::MINUS) => {
-            if let Some(expr) = parse_expression(tokens, Precedence::Prefix) {
-                Expression::Negated(Box::new(expr))
-            } else {
-                panic!("Error parsing not expression")
-            }
+            let expr = parse_expression(tokens, Precedence::Prefix)?;
+
+            Expression::Negated(Box::new(expr))
         }
         Some(Token::LPAREN) => {
-            let expr = if let Some(expr) = parse_expression(tokens, Precedence::Lowest) {
-                expr
-            } else {
-                panic!("Error parsing grouped expression")
-            };
+            let expr = parse_expression(tokens, Precedence::Lowest)?;
 
             match tokens.next() {
                 Some(Token::RPAREN) => expr,
-                x => panic!("Expected RPAREN, got {:?}, parsed: {:?}", x, expr),
+                x => return Err(format!("Expected RPAREN, got {:?}, parsed: {:?}", x, expr)),
             }
         }
         Some(Token::TRUE) => Expression::Boolean(true),
         Some(Token::FALSE) => Expression::Boolean(false),
         Some(Token::IF) => {
             if let Some(Token::LPAREN) = tokens.next() {
-                let condition = parse_expression(tokens, Precedence::Lowest).unwrap();
+            } else {
+                return Err("Expected left paren after if keyword".to_string());
+            }
 
-                if let Some(Token::RPAREN) = tokens.next() {
-                } else {
-                    panic!("Expected right paren")
-                }
+            let condition = parse_expression(tokens, Precedence::Lowest)?;
 
+            if let Some(Token::RPAREN) = tokens.next() {
+            } else {
+                return Err("Expected right paren".to_string());
+            }
+
+            if let Some(Token::LBRACE) = tokens.next() {
+            } else {
+                return Err("Expected left brace".to_string());
+            }
+
+            let consequence = parse_block_statements(tokens)?;
+
+            let alternative = if let Some(Token::ELSE) = tokens.next() {
                 if let Some(Token::LBRACE) = tokens.next() {
                 } else {
-                    panic!("Expected left brace")
+                    return Err("Expected left brace".to_string());
                 }
 
-                let consequence = parse_block_statements(tokens);
-
-                let alternative = if let Some(Token::ELSE) = tokens.next() {
-                    if let Some(Token::LBRACE) = tokens.next() {
-                    } else {
-                        panic!("Expected left brace")
-                    }
-
-                    Some(parse_block_statements(tokens))
-                } else {
-                    None
-                };
-
-                Expression::If(Box::new(condition), consequence, alternative)
+                Some(parse_block_statements(tokens)?)
             } else {
-                panic!("unimplemented")
-            }
+                None
+            };
+
+            Expression::If(Box::new(condition), consequence, alternative)
         }
         Some(Token::FUNCTION) => {
             if let Some(Token::LPAREN) = tokens.next() {
             } else {
-                panic!("Expected left paren");
+                return Err("Expected left paren while parsing function expression".to_string());
             }
 
-            let parameters = parse_function_parameters(tokens);
+            let parameters = parse_function_parameters(tokens)?;
 
             if let Some(Token::LBRACE) = tokens.next() {
             } else {
-                panic!("Expected left brace");
+                return Err("Expected left brace while parsing function expression".to_string());
             }
 
-            let body = parse_block_statements(tokens);
+            let body = parse_block_statements(tokens)?;
 
             Expression::Lambda(parameters, body)
         }
-        x => panic!("parse_expression: {:?}", x),
+        x => {
+            return Err(format!(
+                "Unexpected token while parsing expression: {:?}",
+                x
+            ))
+        }
     };
 
     while tokens.peek() != Some(&&Token::SEMICOLON) && precedence < peek_precedence(tokens) {
-        if let Some(new_exp) = parse_infix_expression(tokens, left_exp.clone()) {
+        // left_expr = parse_infix_expression(tokens, left.exp_clone())?
+
+        if let Ok(new_exp) = parse_infix_expression(tokens, left_exp.clone()) {
             left_exp = new_exp;
         } else {
             break;
         }
     }
 
-    Some(left_exp)
+    Ok(left_exp)
 }
 
 fn parse_let_statement(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-) -> Option<Statement> {
+) -> Result<Statement, String> {
     match (tokens.next(), tokens.next()) {
-        (Some(Token::IDENT(ident)), Some(Token::ASSIGN)) => {
-            if let Some(expr) = parse_expression(tokens, Precedence::Lowest) {
-                Some(Statement::Let(Identifier(ident.to_string()), expr))
-            } else {
-                panic!("Invalid expression in let statement")
-            }
-        }
-        _ => panic!("Invalid let statement"),
+        (Some(Token::IDENT(ident)), Some(Token::ASSIGN)) => Ok(Statement::Let(
+            Identifier(ident.to_string()),
+            parse_expression(tokens, Precedence::Lowest)?,
+        )),
+        _ => Err("Invalid let statement".to_string()),
     }
 }
 
 fn parse_return_statement(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-) -> Option<Statement> {
-    if let Some(expr) = parse_expression(tokens, Precedence::Lowest) {
-        Some(Statement::Return(expr))
-    } else {
-        panic!("Invalid expression in return statement")
-    }
+) -> Result<Statement, String> {
+    parse_expression(tokens, Precedence::Lowest).map(Statement::Return)
 }
 
 fn parse_expression_statement(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-) -> Option<Statement> {
-    if let Some(expr) = parse_expression(tokens, Precedence::Lowest) {
-        Some(Statement::Expression(expr))
-    } else {
-        panic!("Invalid expression statement")
-    }
+) -> Result<Statement, String> {
+    parse_expression(tokens, Precedence::Lowest).map(Statement::Expression)
 }
+
 fn parse_statement(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
 ) -> Result<Statement, String> {
@@ -321,14 +315,14 @@ fn parse_statement(
             parse_return_statement(tokens)
         }
         Some(x) => parse_expression_statement(tokens),
-        None => None,
+        None => return Err("Expected statement, found EOF".to_string()),
     };
 
     if let Some(Token::SEMICOLON) = tokens.peek() {
         tokens.next();
     }
 
-    stmt.ok_or("Couldn't parse statement".to_string())
+    stmt
 }
 
 pub fn parse(tokens: Vec<Token>) -> Result<Program, String> {
