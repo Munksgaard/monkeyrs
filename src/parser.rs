@@ -1,6 +1,8 @@
 use crate::ast::*;
 use crate::token::Token;
 
+type TokenIter<'a, 'b> = &'a mut std::iter::Peekable<std::slice::Iter<'b, Token>>;
+
 #[derive(Debug, PartialEq, Clone, Copy, PartialOrd)]
 enum Precedence {
     Lowest,
@@ -28,7 +30,7 @@ fn precedence(token: &Token) -> Precedence {
     }
 }
 
-fn peek_precedence(tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>) -> Precedence {
+fn peek_precedence(tokens: TokenIter) -> Precedence {
     tokens
         .peek()
         .map(|x: &&Token| precedence(*x))
@@ -36,7 +38,7 @@ fn peek_precedence(tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>
 }
 
 fn parse_infix_expression(
-    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    tokens: TokenIter,
     left: Expression,
 ) -> Result<Expression, String> {
     match tokens.next() {
@@ -109,7 +111,7 @@ fn parse_infix_expression(
 }
 
 fn parse_call_arguments(
-    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    tokens: TokenIter,
 ) -> Result<Vec<Expression>, String> {
     let mut args = Vec::new();
 
@@ -139,7 +141,7 @@ fn parse_call_arguments(
 }
 
 fn parse_block_statements(
-    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    tokens: TokenIter,
 ) -> Result<Vec<Statement>, String> {
     let mut statements = Vec::new();
 
@@ -156,7 +158,7 @@ fn parse_block_statements(
 }
 
 fn parse_function_parameters(
-    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    tokens: TokenIter,
 ) -> Result<Vec<Identifier>, String> {
     let mut identifiers = Vec::new();
 
@@ -177,7 +179,7 @@ fn parse_function_parameters(
 }
 
 fn parse_expression(
-    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    tokens: TokenIter,
     precedence: Precedence,
 ) -> Result<Expression, String> {
     let mut left_exp = match tokens.next() {
@@ -275,7 +277,7 @@ fn parse_expression(
 }
 
 fn parse_let_statement(
-    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    tokens: TokenIter,
 ) -> Result<Statement, String> {
     match (tokens.next(), tokens.next()) {
         (Some(Token::IDENT(ident)), Some(Token::ASSIGN)) => Ok(Statement::Let(
@@ -287,19 +289,19 @@ fn parse_let_statement(
 }
 
 fn parse_return_statement(
-    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    tokens: TokenIter,
 ) -> Result<Statement, String> {
     parse_expression(tokens, Precedence::Lowest).map(Statement::Return)
 }
 
 fn parse_expression_statement(
-    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    tokens: TokenIter,
 ) -> Result<Statement, String> {
     parse_expression(tokens, Precedence::Lowest).map(Statement::Expression)
 }
 
 fn parse_statement(
-    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    tokens: TokenIter,
 ) -> Result<Statement, String> {
     let stmt = match tokens.peek() {
         Some(Token::LET) => {
