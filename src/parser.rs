@@ -144,10 +144,11 @@ fn parse_block_statements(
         if let Some(Token::RBRACE) = tokens.peek() {
             tokens.next();
             break;
-        } else if let Some(statement) = parse_statement(tokens) {
-            statements.push(statement);
         } else {
-            panic!("Expected statement");
+            match parse_statement(tokens) {
+                Ok(statement) => statements.push(statement),
+                Err(e) => panic!("Expected statement, {:?}, {:?}", e, statements),
+            }
         }
     }
 
@@ -309,7 +310,7 @@ fn parse_expression_statement(
 }
 fn parse_statement(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-) -> Option<Statement> {
+) -> Result<Statement, String> {
     let stmt = match tokens.peek() {
         Some(Token::LET) => {
             tokens.next();
@@ -327,18 +328,19 @@ fn parse_statement(
         tokens.next();
     }
 
-    stmt
+    stmt.ok_or("Couldn't parse statement".to_string())
 }
 
-pub fn parse(tokens: Vec<Token>) -> Program {
+pub fn parse(tokens: Vec<Token>) -> Result<Program, String> {
     let mut peekable: std::iter::Peekable<std::slice::Iter<'_, Token>> = tokens.iter().peekable();
 
     let mut statements = Vec::new();
 
-    while let Some(statement) = parse_statement(&mut peekable) {
-        statements.push(statement);
+    while let Some(_) = peekable.peek() {
+        statements.push(parse_statement(&mut peekable)?);
     }
-    Program(statements)
+
+    Ok(Program(statements))
 }
 
 #[cfg(test)]
@@ -353,7 +355,7 @@ let foobar = 838383;
 "#;
         let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect();
-        let result = parse(tokens);
+        let result = parse(tokens).unwrap();
 
         let expected = Program(vec![
             Statement::Let(Identifier("x".to_string()), Expression::IntegerLiteral(5)),
@@ -372,7 +374,7 @@ let foobar = y;
 "#;
         let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect();
-        let result = parse(tokens);
+        let result = parse(tokens).unwrap();
 
         let expected = Program(vec![
             Statement::Let(Identifier("x".to_string()), Expression::IntegerLiteral(5)),
@@ -394,7 +396,7 @@ return 993322;
 "#;
         let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect();
-        let result = parse(tokens);
+        let result = parse(tokens).unwrap();
 
         let expected = Program(vec![
             Statement::Return(Expression::IntegerLiteral(5)),
@@ -410,7 +412,7 @@ return 993322;
         let input = r#"foobar;"#;
         let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect();
-        let result = parse(tokens);
+        let result = parse(tokens).unwrap();
 
         let expected = Program(vec![Statement::Expression(Expression::Ident(
             "foobar".to_string(),
@@ -424,7 +426,7 @@ return 993322;
         let input = r#"5;"#;
         let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect();
-        let result = parse(tokens);
+        let result = parse(tokens).unwrap();
 
         let expected = Program(vec![Statement::Expression(Expression::IntegerLiteral(5))]);
 
@@ -444,7 +446,7 @@ return 993322;
         let input = r#"!5;"#;
         let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect();
-        let result = parse(tokens);
+        let result = parse(tokens).unwrap();
 
         let expected = Program(vec![Statement::Expression(Expression::Not(Box::new(
             Expression::IntegerLiteral(5),
@@ -458,7 +460,7 @@ return 993322;
         let input = r#"-5;"#;
         let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect();
-        let result = parse(tokens);
+        let result = parse(tokens).unwrap();
 
         let expected = Program(vec![Statement::Expression(Expression::Negated(Box::new(
             Expression::IntegerLiteral(5),
@@ -485,7 +487,7 @@ false == false;
 "#;
         let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect();
-        let result = parse(tokens);
+        let result = parse(tokens).unwrap();
 
         let expected = Program(vec![
             Statement::Expression(Plus(
@@ -535,11 +537,11 @@ false == false;
         fn test_it(input1: &str, input2: &str) {
             let lexer = Lexer::new(input1);
             let tokens: Vec<_> = lexer.collect();
-            let result1 = parse(tokens);
+            let result1 = parse(tokens).unwrap();
 
             let lexer = Lexer::new(input2);
             let tokens: Vec<_> = lexer.collect();
-            let result2 = parse(tokens);
+            let result2 = parse(tokens).unwrap();
 
             assert_eq!(result1, result2);
         }
@@ -585,7 +587,7 @@ false == false;
         use Expression::*;
         let lexer = Lexer::new("a + b * c");
         let tokens: Vec<_> = lexer.collect();
-        let result = parse(tokens);
+        let result = parse(tokens).unwrap();
 
         let expected = Program(vec![Statement::Expression(Plus(
             Box::new(Ident("a".to_string())),
@@ -609,7 +611,7 @@ let barfoo = false;
 "#;
         let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect();
-        let result = parse(tokens);
+        let result = parse(tokens).unwrap();
 
         let expected = Program(vec![
             Statement::Expression(Boolean(true)),
@@ -629,14 +631,14 @@ let barfoo = false;
 "#;
         let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect();
-        let result = parse(tokens);
+        let result = parse(tokens).unwrap();
 
         let expected = Program(vec![Statement::Expression(If(
             Box::new(LessThan(
                 Box::new(Ident("x".to_string())),
                 Box::new(Ident("y".to_string())),
             )),
-            vec![(Box::new(Statement::Expression(Ident("x".to_string()))))],
+            vec![Statement::Expression(Ident("x".to_string()))],
             None,
         ))]);
 
@@ -651,17 +653,15 @@ let barfoo = false;
 "#;
         let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect();
-        let result = parse(tokens);
+        let result = parse(tokens).unwrap();
 
         let expected = Program(vec![Statement::Expression(If(
             Box::new(LessThan(
                 Box::new(Ident("x".to_string())),
                 Box::new(Ident("y".to_string())),
             )),
-            vec![(Box::new(Statement::Expression(Ident("x".to_string()))))],
-            Some(vec![
-                (Box::new(Statement::Expression(Ident("y".to_string())))),
-            ]),
+            vec![Statement::Expression(Ident("x".to_string()))],
+            Some(vec![Statement::Expression(Ident("y".to_string()))]),
         ))]);
 
         assert_eq!(expected, result);
@@ -678,17 +678,15 @@ fn(x, y, z) {};
 "#;
         let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect();
-        let result = parse(tokens);
+        let result = parse(tokens).unwrap();
 
         let expected = Program(vec![
             Statement::Expression(Lambda(
                 vec![Identifier("x".to_string()), Identifier("y".to_string())],
-                vec![
-                    (Box::new(Statement::Expression(Plus(
-                        Box::new(Ident("x".to_string())),
-                        Box::new(Ident("y".to_string())),
-                    )))),
-                ],
+                vec![Statement::Expression(Plus(
+                    Box::new(Ident("x".to_string())),
+                    Box::new(Ident("y".to_string())),
+                ))],
             )),
             Statement::Expression(Lambda(vec![], vec![])),
             Statement::Expression(Lambda(vec![Identifier("x".to_string())], vec![])),
@@ -713,20 +711,14 @@ fn(x, y, z) {};
 "#;
         let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect();
-        let result = parse(tokens);
+        let result = parse(tokens).unwrap();
 
         let expected = Program(vec![Statement::Expression(Call(
             Box::new(Ident("add".to_string())),
             vec![
-                Box::new(IntegerLiteral(1)),
-                Box::new(Multiply(
-                    Box::new(IntegerLiteral(2)),
-                    Box::new(IntegerLiteral(3)),
-                )),
-                Box::new(Plus(
-                    Box::new(IntegerLiteral(4)),
-                    Box::new(IntegerLiteral(5)),
-                )),
+                IntegerLiteral(1),
+                Multiply(Box::new(IntegerLiteral(2)), Box::new(IntegerLiteral(3))),
+                Plus(Box::new(IntegerLiteral(4)), Box::new(IntegerLiteral(5))),
             ],
         ))]);
 
