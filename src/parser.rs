@@ -1,9 +1,5 @@
-#![allow(unused_imports, dead_code, unused_variables)]
-
 use crate::ast::*;
-use crate::lexer::Lexer;
 use crate::token::Token;
-use std::iter::Peekable;
 
 #[derive(Debug, PartialEq, Clone, Copy, PartialOrd)]
 enum Precedence {
@@ -100,7 +96,7 @@ fn parse_infix_expression(
                 Err("Couldn't parse infix expression 7".to_string())
             }
         }
-        Some(tok @ Token::LPAREN) => {
+        Some(Token::LPAREN) => {
             let right = parse_call_arguments(tokens)?;
             Ok(Expression::Call(Box::new(left), right))
         }
@@ -314,7 +310,7 @@ fn parse_statement(
             tokens.next();
             parse_return_statement(tokens)
         }
-        Some(x) => parse_expression_statement(tokens),
+        Some(_) => parse_expression_statement(tokens),
         None => return Err("Expected statement, found EOF".to_string()),
     };
 
@@ -339,6 +335,7 @@ pub fn parse(tokens: Vec<Token>) -> Result<Program, String> {
 
 #[cfg(test)]
 mod test {
+    use crate::lexer::Lexer;
     use super::*;
 
     #[test]
