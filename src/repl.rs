@@ -1,4 +1,5 @@
 use crate::lexer::Lexer;
+use crate::parser::parse;
 use std::io::{BufRead, Write};
 
 const PROMPT: &[u8; 3] = b">> ";
@@ -17,7 +18,9 @@ where
 
         let lexer = Lexer::new(&line);
 
-        let result: Vec<_> = lexer.collect();
+        let tokens: Vec<_> = lexer.collect();
+
+        let result = parse(tokens);
 
         writer.write_all(format!("{:?}\n", result).as_bytes())?;
         writer.flush()?;
