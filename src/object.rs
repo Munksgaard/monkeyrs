@@ -8,6 +8,7 @@ pub enum Object {
     Boolean(bool),
     Null,
     Function(Vec<Identifier>, Environment, Vec<Statement>),
+    String(String),
 }
 
 impl fmt::Display for Object {
@@ -17,6 +18,7 @@ impl fmt::Display for Object {
             Object::Boolean(b) => write!(f, "{}", b),
             Object::Null => write!(f, "null"),
             Object::Function(_, _, _) => write!(f, "<function>"),
+            Object::String(s) => write!(f, "{:?}", s),
         }
     }
 }

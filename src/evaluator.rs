@@ -26,6 +26,7 @@ impl Evaluator {
                 Object::Integer(_) => Ok(Object::Boolean(false)),
                 Object::Null => Ok(Object::Boolean(true)),
                 Object::Function(_, _, _) => Err("Cannot not a function".to_string()),
+                Object::String(_) => Err("Cannot not a string".to_string()),
             },
             Expression::Negated(expr) => match self.eval_expr(env, expr)? {
                 Object::Integer(i) => Ok(Object::Integer(-i)),
@@ -35,6 +36,13 @@ impl Evaluator {
                 if let Object::Integer(left) = self.eval_expr(env, expr1)? {
                     if let Object::Integer(right) = self.eval_expr(env, expr2)? {
                         return Ok(Object::Integer(left + right));
+                    }
+                }
+
+                if let Object::String(mut left) = self.eval_expr(env, expr1)? {
+                    if let Object::String(right) = self.eval_expr(env, expr2)? {
+                        left.push_str(&right);
+                        return Ok(Object::String(left));
                     }
                 }
 
@@ -169,6 +177,7 @@ impl Evaluator {
                 }
                 _ => Err(format!("Not a function: {:?}", f)),
             },
+            Expression::StringLiteral(s) => Ok(Object::String(s.to_string())),
         }
     }
 
@@ -198,11 +207,7 @@ impl Evaluator {
         Ok(result)
     }
 
-    pub fn eval(
-        &mut self,
-        prgm: ast::Program,
-        env: &mut Environment,
-    ) -> Result<Object, String> {
+    pub fn eval(&mut self, prgm: ast::Program, env: &mut Environment) -> Result<Object, String> {
         let Program(stmts) = prgm;
 
         let result = self.eval_block_statements(env, &stmts)?;
@@ -222,6 +227,7 @@ fn is_truthy(obj: Object) -> bool {
         Object::Integer(0) => false,
         Object::Integer(_) => true,
         Object::Function(_, _, _) => false,
+        Object::String(_) => true,
     }
 }
 
@@ -367,6 +373,11 @@ mod test {
             .is_err(),
             "This crazyness should return an error"
         );
+
+        assert!(
+            helper(r#""Hello" - "World""#).is_err(),
+            "Cannot subtract two strings from each other"
+        );
     }
 
     #[test]
@@ -416,5 +427,21 @@ mod test {
             helper("let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));")
         );
         assert_eq!(Ok(Object::Integer(5)), helper("fn(x) { x; }(5)"));
+    }
+
+    #[test]
+    fn test_string_literal() {
+        assert_eq!(
+            Ok(Object::String("Hello World!".to_string())),
+            helper(r#""Hello World!""#)
+        );
+    }
+
+    #[test]
+    fn test_string_concatenation() {
+        assert_eq!(
+            Ok(Object::String("Hello World!".to_string())),
+            helper(r#""Hello" + " " + "World!""#)
+        );
     }
 }

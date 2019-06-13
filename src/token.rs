@@ -26,4 +26,5 @@ pub enum Token {
     IF,
     ELSE,
     RETURN,
+    STRING(String),
 }

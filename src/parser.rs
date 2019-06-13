@@ -243,6 +243,7 @@ fn parse_expression(tokens: TokenIter, precedence: Precedence) -> Result<Express
 
             Expression::Lambda(parameters, body)
         }
+        Some(Token::STRING(s)) => Expression::StringLiteral(s.to_string()),
         x => {
             return Err(format!(
                 "Unexpected token while parsing expression: {:?}",
@@ -697,5 +698,20 @@ fn(x, y, z) {};
 
         assert_eq!(expected, result);
     }
+
+    #[test]
+    fn test_string_literal_expression() {
+        use Expression::*;
+
+        let input = r#""hello world";"#;
+        let lexer = Lexer::new(input);
+        let tokens: Vec<_> = lexer.collect();
+        let result = parse(tokens).unwrap();
+
+        let expected = Program(vec![Statement::Expression(StringLiteral("hello world".to_string()))]);
+
+        assert_eq!(expected, result);
+    }
+
 
 }

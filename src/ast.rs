@@ -29,4 +29,5 @@ pub enum Expression {
     If(Box<Expression>, Vec<Statement>, Option<Vec<Statement>>),
     Lambda(Vec<Identifier>, Vec<Statement>),
     Call(Box<Expression>, Vec<Expression>),
+    StringLiteral(String),
 }

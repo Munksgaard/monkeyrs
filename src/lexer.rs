@@ -74,6 +74,17 @@ impl<'a> Iterator for Lexer<'a> {
             Some('/') => Some(SLASH),
             Some('<') => Some(LT),
             Some('>') => Some(GT),
+            Some('"') => {
+                let mut result = String::new();
+                loop {
+                    match self.chars.next() {
+                        Some('"') => break,
+                        Some(c) => result.push(c),
+                        None => break,
+                    }
+                }
+                Some(STRING(result))
+            }
             Some(c) => {
                 if is_letter(c) {
                     let ident = read_identifier(c, &mut self.chars);
@@ -93,7 +104,6 @@ impl<'a> Iterator for Lexer<'a> {
                     Some(ILLEGAL)
                 }
             }
-
             None => None,
         }
     }
@@ -275,4 +285,25 @@ let result = add(five, ten);
         assert_eq!(expected[..], result[..]);
     }
 
+    #[test]
+    fn test_lex_6() {
+        use Token::*;
+
+        let input = r#""foobar";
+"foo bar";
+"#;
+
+        let expected = [
+            STRING("foobar".to_string()),
+            SEMICOLON,
+            STRING("foo bar".to_string()),
+            SEMICOLON,
+        ];
+
+        let lexer = Lexer::new(input);
+
+        let result: Vec<_> = lexer.collect();
+
+        assert_eq!(expected[..], result[..]);
+    }
 }
