@@ -1,7 +1,7 @@
 #[derive(Debug, PartialEq)]
 pub struct Program(pub Vec<Statement>);
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct Identifier(pub String);
 
 #[derive(Debug, PartialEq, Clone)]
@@ -14,7 +14,7 @@ pub enum Statement {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     IntegerLiteral(usize),
-    Ident(String),
+    Ident(Identifier),
     Negated(Box<Expression>),
     Not(Box<Expression>),
     Plus(Box<Expression>, Box<Expression>),

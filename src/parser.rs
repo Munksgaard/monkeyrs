@@ -37,10 +37,7 @@ fn peek_precedence(tokens: TokenIter) -> Precedence {
         .unwrap_or(Precedence::Lowest)
 }
 
-fn parse_infix_expression(
-    tokens: TokenIter,
-    left: Expression,
-) -> Result<Expression, String> {
+fn parse_infix_expression(tokens: TokenIter, left: Expression) -> Result<Expression, String> {
     match tokens.next() {
         Some(tok @ Token::PLUS) => {
             if let Ok(right) = parse_expression(tokens, precedence(tok)) {
@@ -110,9 +107,7 @@ fn parse_infix_expression(
     }
 }
 
-fn parse_call_arguments(
-    tokens: TokenIter,
-) -> Result<Vec<Expression>, String> {
+fn parse_call_arguments(tokens: TokenIter) -> Result<Vec<Expression>, String> {
     let mut args = Vec::new();
 
     loop {
@@ -140,9 +135,7 @@ fn parse_call_arguments(
     Ok(args)
 }
 
-fn parse_block_statements(
-    tokens: TokenIter,
-) -> Result<Vec<Statement>, String> {
+fn parse_block_statements(tokens: TokenIter) -> Result<Vec<Statement>, String> {
     let mut statements = Vec::new();
 
     loop {
@@ -157,9 +150,7 @@ fn parse_block_statements(
     Ok(statements)
 }
 
-fn parse_function_parameters(
-    tokens: TokenIter,
-) -> Result<Vec<Identifier>, String> {
+fn parse_function_parameters(tokens: TokenIter) -> Result<Vec<Identifier>, String> {
     let mut identifiers = Vec::new();
 
     loop {
@@ -178,12 +169,9 @@ fn parse_function_parameters(
     Ok(identifiers)
 }
 
-fn parse_expression(
-    tokens: TokenIter,
-    precedence: Precedence,
-) -> Result<Expression, String> {
+fn parse_expression(tokens: TokenIter, precedence: Precedence) -> Result<Expression, String> {
     let mut left_exp = match tokens.next() {
-        Some(Token::IDENT(ident)) => Expression::Ident(ident.to_string()),
+        Some(Token::IDENT(ident)) => Expression::Ident(Identifier(ident.to_string())),
         Some(Token::INT(n)) => Expression::IntegerLiteral(*n),
         Some(Token::BANG) => {
             let expr = parse_expression(tokens, Precedence::Prefix)?;
@@ -276,9 +264,7 @@ fn parse_expression(
     Ok(left_exp)
 }
 
-fn parse_let_statement(
-    tokens: TokenIter,
-) -> Result<Statement, String> {
+fn parse_let_statement(tokens: TokenIter) -> Result<Statement, String> {
     match (tokens.next(), tokens.next()) {
         (Some(Token::IDENT(ident)), Some(Token::ASSIGN)) => Ok(Statement::Let(
             Identifier(ident.to_string()),
@@ -288,21 +274,15 @@ fn parse_let_statement(
     }
 }
 
-fn parse_return_statement(
-    tokens: TokenIter,
-) -> Result<Statement, String> {
+fn parse_return_statement(tokens: TokenIter) -> Result<Statement, String> {
     parse_expression(tokens, Precedence::Lowest).map(Statement::Return)
 }
 
-fn parse_expression_statement(
-    tokens: TokenIter,
-) -> Result<Statement, String> {
+fn parse_expression_statement(tokens: TokenIter) -> Result<Statement, String> {
     parse_expression(tokens, Precedence::Lowest).map(Statement::Expression)
 }
 
-fn parse_statement(
-    tokens: TokenIter,
-) -> Result<Statement, String> {
+fn parse_statement(tokens: TokenIter) -> Result<Statement, String> {
     let stmt = match tokens.peek() {
         Some(Token::LET) => {
             tokens.next();
@@ -337,8 +317,8 @@ pub fn parse(tokens: Vec<Token>) -> Result<Program, String> {
 
 #[cfg(test)]
 mod test {
-    use crate::lexer::Lexer;
     use super::*;
+    use crate::lexer::Lexer;
 
     #[test]
     fn test_let_statements() {
@@ -374,7 +354,7 @@ let foobar = y;
             Statement::Let(Identifier("y".to_string()), Expression::Boolean(true)),
             Statement::Let(
                 Identifier("foobar".to_string()),
-                Expression::Ident("y".to_string()),
+                Expression::Ident(Identifier("y".to_string())),
             ),
         ]);
 
@@ -407,9 +387,9 @@ return 993322;
         let tokens: Vec<_> = lexer.collect();
         let result = parse(tokens).unwrap();
 
-        let expected = Program(vec![Statement::Expression(Expression::Ident(
+        let expected = Program(vec![Statement::Expression(Expression::Ident(Identifier(
             "foobar".to_string(),
-        ))]);
+        )))]);
 
         assert_eq!(expected, result);
     }
@@ -525,8 +505,6 @@ false == false;
 
     #[test]
     fn test_operator_precedence_expressions() {
-        use Expression::*;
-
         fn test_it(input1: &str, input2: &str) {
             let lexer = Lexer::new(input1);
             let tokens: Vec<_> = lexer.collect();
@@ -583,10 +561,10 @@ false == false;
         let result = parse(tokens).unwrap();
 
         let expected = Program(vec![Statement::Expression(Plus(
-            Box::new(Ident("a".to_string())),
+            Box::new(Ident(Identifier("a".to_string()))),
             Box::new(Multiply(
-                Box::new(Ident("b".to_string())),
-                Box::new(Ident("c".to_string())),
+                Box::new(Ident(Identifier("b".to_string()))),
+                Box::new(Ident(Identifier("c".to_string()))),
             )),
         ))]);
 
@@ -628,10 +606,10 @@ let barfoo = false;
 
         let expected = Program(vec![Statement::Expression(If(
             Box::new(LessThan(
-                Box::new(Ident("x".to_string())),
-                Box::new(Ident("y".to_string())),
+                Box::new(Ident(Identifier("x".to_string()))),
+                Box::new(Ident(Identifier("y".to_string()))),
             )),
-            vec![Statement::Expression(Ident("x".to_string()))],
+            vec![Statement::Expression(Ident(Identifier("x".to_string())))],
             None,
         ))]);
 
@@ -650,11 +628,13 @@ let barfoo = false;
 
         let expected = Program(vec![Statement::Expression(If(
             Box::new(LessThan(
-                Box::new(Ident("x".to_string())),
-                Box::new(Ident("y".to_string())),
+                Box::new(Ident(Identifier("x".to_string()))),
+                Box::new(Ident(Identifier("y".to_string()))),
             )),
-            vec![Statement::Expression(Ident("x".to_string()))],
-            Some(vec![Statement::Expression(Ident("y".to_string()))]),
+            vec![Statement::Expression(Ident(Identifier("x".to_string())))],
+            Some(vec![Statement::Expression(Ident(Identifier(
+                "y".to_string(),
+            )))]),
         ))]);
 
         assert_eq!(expected, result);
@@ -677,8 +657,8 @@ fn(x, y, z) {};
             Statement::Expression(Lambda(
                 vec![Identifier("x".to_string()), Identifier("y".to_string())],
                 vec![Statement::Expression(Plus(
-                    Box::new(Ident("x".to_string())),
-                    Box::new(Ident("y".to_string())),
+                    Box::new(Ident(Identifier("x".to_string()))),
+                    Box::new(Ident(Identifier("y".to_string()))),
                 ))],
             )),
             Statement::Expression(Lambda(vec![], vec![])),
@@ -707,7 +687,7 @@ fn(x, y, z) {};
         let result = parse(tokens).unwrap();
 
         let expected = Program(vec![Statement::Expression(Call(
-            Box::new(Ident("add".to_string())),
+            Box::new(Ident(Identifier("add".to_string()))),
             vec![
                 IntegerLiteral(1),
                 Multiply(Box::new(IntegerLiteral(2)), Box::new(IntegerLiteral(3))),

@@ -1,3 +1,5 @@
+use crate::env::Environment;
+use crate::evaluator::Evaluator;
 use crate::lexer::Lexer;
 use crate::parser::parse;
 use std::io::{BufRead, Write};
@@ -9,6 +11,8 @@ where
     R: BufRead,
     W: Write,
 {
+    let mut env = Environment::new();
+
     loop {
         writer.write_all(PROMPT)?;
         writer.flush()?;
@@ -20,9 +24,16 @@ where
 
         let tokens: Vec<_> = lexer.collect();
 
-        let result = parse(tokens);
+        let ast = parse(tokens);
 
-        writer.write_all(format!("{:?}\n", result).as_bytes())?;
+        let mut evaluator = Evaluator::new();
+
+        let result = ast
+            .and_then(|node| evaluator.eval(node, &mut env))
+            .map(|x| x.to_string())
+            .unwrap_or_else(|x| x);
+
+        writer.write_all(format!("{}\n", result).as_bytes())?;
         writer.flush()?;
     }
 }
